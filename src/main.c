@@ -2,6 +2,11 @@
 
 static Window *main_window;
 TextLayer *output_layer;
+TextLayer *output_layer_up;
+TextLayer *output_layer_down;
+
+char *textLayer;
+
 
 // Android Communication
 #define REQUEST_LOCATION                0
@@ -188,7 +193,9 @@ void received_handler(DictionaryIterator *iter, void *context) {
       strcpy(text, "Error.\nPlease check your dictionary KEYS");
       break;
   }
-  text_layer_set_text(output_layer, text);
+  //text_layer_set_text(output_layer, text);
+  
+  strcpy(textLayer, text);
 }
 
 void up_click_handler(ClickRecognizerRef recognizer, void *context) {
@@ -262,10 +269,31 @@ static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
-  output_layer = text_layer_create(GRect(0, 60, bounds.size.w, bounds.size.h)); // Change if you use PEBBLE_SDK 3
-  text_layer_set_text(output_layer, "Welcome Pebble :-)\nPlease UP click !");
-  text_layer_set_text_alignment(output_layer, GTextAlignmentCenter);
-  layer_add_child(window_layer, text_layer_get_layer(output_layer));
+  //creation du layer text
+  /*output_layer = text_layer_create(GRect(0, 0, bounds.size.w, bounds.size.h)); // Change if you use PEBBLE_SDK 3
+  text_layer_set_text(output_layer, "Welcome Pebble 2 :-)\nPlease UP click !");
+  text_layer_set_text_alignment(output_layer, GTextAlignmentCenter);*/
+  
+  int halfHeight = 76;
+  APP_LOG(APP_LOG_LEVEL_INFO, "screenHeight : %d", bounds.size.h);
+  //APP_LOG(APP_LOG_LEVEL_INFO, "halfHeight : %f", halfHeight);
+  
+  //layer du haut
+  output_layer_up = text_layer_create(GRect(0, 0, bounds.size.w, halfHeight));
+  send(1, "");
+  text_layer_set_text(output_layer_up, textLayer);
+  text_layer_set_text_alignment(output_layer_up, GTextAlignmentCenter);
+       
+  //layer du bas
+  output_layer_down = text_layer_create(GRect(0, halfHeight, bounds.size.w, halfHeight));
+  text_layer_set_text(output_layer_down, "Down layer");
+  text_layer_set_text_alignment(output_layer_down, GTextAlignmentCenter);
+  
+  
+  //on link au root
+  //layer_add_child(window_layer, text_layer_get_layer(output_layer));
+  layer_add_child(window_layer, text_layer_get_layer(output_layer_up));
+  layer_add_child(window_layer, text_layer_get_layer(output_layer_down));
 }
 
 static void main_window_unload(Window *window) {
