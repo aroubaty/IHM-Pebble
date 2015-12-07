@@ -2,11 +2,6 @@
 
 static Window *main_window;
 TextLayer *output_layer;
-TextLayer *output_layer_up;
-TextLayer *output_layer_down;
-
-char *textLayer;
-
 
 // Android Communication
 #define REQUEST_LOCATION                0
@@ -60,11 +55,98 @@ char *textLayer;
 #define GRAVITY             10000 // (1g)² = 10000
 #define ACCEL_THRESHOLD     8000  // (1g)² = 10000
 
+//SLOT KEY
+#define SLOT1 50
+#define SLOT2 51
+#define SLOT3 52
+#define SLOT4 53
+#define SLOT5 54
+#define SLOT6 55
+#define SLOT7 56
+#define SLOT8 57
+
+#define NUMBER_OF_PAGE 4
+
+
 int counter = -1;
 char text[MAX_TEXT_SIZE];
 unsigned long int up_time = 0;      //in seconds
 unsigned long int active_time = 0;  //in seconds/10
 
+char textLayerTop[MAX_TEXT_SIZE];
+char textLayerDown[MAX_TEXT_SIZE];
+int idTop = -1;
+int idBot = -1;
+int currentPage = 0;
+TextLayer *output_layer_up;
+TextLayer *output_layer_down;
+
+void loadSampleData(){
+  persist_write_int(SLOT1, 4);
+  persist_write_int(SLOT2, 5);
+  persist_write_int(SLOT3, 6);
+  persist_write_int(SLOT4, 7);
+  persist_write_int(SLOT5, 8);
+  persist_write_int(SLOT6, 9);
+  persist_write_int(SLOT7, 10);
+  persist_write_int(SLOT8, 11);
+}
+
+void getWaiting(int id){
+  switch (id) {
+    case REQUEST_LOCATION:
+      strcpy(text, "Request for:\nLOCATION\nsent");
+      break;
+    case REQUEST_FIX_LOCATION:
+      strcpy(text, "Request for:\nFIXING TARGET\nsent");
+      break;
+    case REQUEST_START_THREADED_LOCATION:
+      strcpy(text, "Request for:\nSTART THREAD NAVIGATION\nsent");
+      break;
+    case REQUEST_STOP_THREADED_LOCATION:
+      strcpy(text, "Request for:\nSTOP THREAD NAVIGATION\nsent");
+      break;
+    case REQUEST_ELEVATION:
+      strcpy(text, "Request for:\nELEVATION\nsent");
+      break;
+    case REQUEST_WEATHER_STATUS:
+      strcpy(text, "Request for:\nWEATHER_STATUS\nsent");
+      break;
+    case REQUEST_WEATHER_TEMPERATURE:
+      strcpy(text, "Request for:\nTEMPERATURE\nsent");
+      break;
+    case REQUEST_WEATHER_PRESSURE:
+      strcpy(text, "Request for:\nPRESSURE\nsent");
+      break;
+    case REQUEST_WEATHER_HUMIDITY:
+      strcpy(text, "Request for:\nHUMIDITY\nsent");
+      break;
+    case REQUEST_WEATHER_WIND:
+      strcpy(text, "Request for:\nWIND\nsent");
+      break;
+    case REQUEST_WEATHER_SUNRISE:
+      strcpy(text, "Request for:\nSUNRISE\nsent");
+      break;
+    case REQUEST_WEATHER_SUNSET:
+      strcpy(text, "Request for:\nSUNSET\nsent");
+      break;
+    case REQUEST_TRANSPORT:
+      strcpy(text, "Request for:\nTRANSPORT\nsent");
+      break;
+    case SHOW_UP_TIME:
+      strcpy(text, "Mode:\nSHOW_UP_TIME\nset");
+      break;
+    case SHOW_ACTIVE_TIME:
+      strcpy(text, "Mode:\nSHOW_ACTIVE_TIME\nset");
+      break;
+    case SHOW_BATTERY_STATE:
+      strcpy(text, "Mode:\nSHOW_BATTERY_STATE\nset");
+      break;
+    default:
+      strcpy(text, "Error.\nPlease check if NUMBER_OF_ITEMS is OK");
+      break;
+  }
+}
 
 void send(int key, char *value) {
   DictionaryIterator *iter;
@@ -193,72 +275,47 @@ void received_handler(DictionaryIterator *iter, void *context) {
       strcpy(text, "Error.\nPlease check your dictionary KEYS");
       break;
   }
-  //text_layer_set_text(output_layer, text);
   
-  strcpy(textLayer, text);
+  //update top
+  if(result_tuple->value->int32 == idTop){
+    strcpy(textLayerTop, text);
+    text_layer_set_text(output_layer_up, textLayerTop);
+  }
+  
+  //update bot
+  if(result_tuple->value->int32 == idBot){
+    strcpy(textLayerDown, text);
+    text_layer_set_text(output_layer_down, textLayerDown);
+  }
+  
+  //strcpy(textLayerDown, text);
+  //text_layer_set_text(output_layer_down, textLayerDown);
 }
 
 void up_click_handler(ClickRecognizerRef recognizer, void *context) {
-  counter = (counter + 1) % NUMBER_OF_ITEMS;
-  APP_LOG(APP_LOG_LEVEL_INFO, "Sending request id : %d", counter);
-  if (counter < 13) {
-	  send(counter, "");
-  }
-
-  switch (counter) {
-    case REQUEST_LOCATION:
-      strcpy(text, "Request for:\nLOCATION\nsent");
-      break;
-    case REQUEST_FIX_LOCATION:
-      strcpy(text, "Request for:\nFIXING TARGET\nsent");
-      break;
-    case REQUEST_START_THREADED_LOCATION:
-      strcpy(text, "Request for:\nSTART THREAD NAVIGATION\nsent");
-      break;
-    case REQUEST_STOP_THREADED_LOCATION:
-      strcpy(text, "Request for:\nSTOP THREAD NAVIGATION\nsent");
-      break;
-    case REQUEST_ELEVATION:
-      strcpy(text, "Request for:\nELEVATION\nsent");
-      break;
-    case REQUEST_WEATHER_STATUS:
-      strcpy(text, "Request for:\nWEATHER_STATUS\nsent");
-      break;
-    case REQUEST_WEATHER_TEMPERATURE:
-      strcpy(text, "Request for:\nTEMPERATURE\nsent");
-      break;
-    case REQUEST_WEATHER_PRESSURE:
-      strcpy(text, "Request for:\nPRESSURE\nsent");
-      break;
-    case REQUEST_WEATHER_HUMIDITY:
-      strcpy(text, "Request for:\nHUMIDITY\nsent");
-      break;
-    case REQUEST_WEATHER_WIND:
-      strcpy(text, "Request for:\nWIND\nsent");
-      break;
-    case REQUEST_WEATHER_SUNRISE:
-      strcpy(text, "Request for:\nSUNRISE\nsent");
-      break;
-    case REQUEST_WEATHER_SUNSET:
-      strcpy(text, "Request for:\nSUNSET\nsent");
-      break;
-    case REQUEST_TRANSPORT:
-      strcpy(text, "Request for:\nTRANSPORT\nsent");
-      break;
-    case SHOW_UP_TIME:
-      strcpy(text, "Mode:\nSHOW_UP_TIME\nset");
-      break;
-    case SHOW_ACTIVE_TIME:
-      strcpy(text, "Mode:\nSHOW_ACTIVE_TIME\nset");
-      break;
-    case SHOW_BATTERY_STATE:
-      strcpy(text, "Mode:\nSHOW_BATTERY_STATE\nset");
-      break;
-    default:
-      strcpy(text, "Error.\nPlease check if NUMBER_OF_ITEMS is OK");
-      break;
-  }
-  text_layer_set_text(output_layer, text);
+  currentPage = (currentPage + 1) % NUMBER_OF_PAGE;
+  APP_LOG(APP_LOG_LEVEL_INFO, "current page : %d", currentPage);
+  
+  idTop = persist_read_int(SLOT1 + (currentPage * 2));
+  APP_LOG(APP_LOG_LEVEL_INFO, "send id : %d", idTop);
+  char textUp[MAX_TEXT_SIZE];
+  getWaiting(idTop);
+  strcpy(textUp, text);
+  send(idTop, "");
+  text_layer_set_text(output_layer_up, textUp);
+  
+  idBot = persist_read_int(SLOT2 + (currentPage * 2));
+  APP_LOG(APP_LOG_LEVEL_INFO, "send id : %d", idBot);
+  char textDown[MAX_TEXT_SIZE];
+  getWaiting(idBot);
+  strcpy(textDown, text);
+  send(idBot, "");
+  text_layer_set_text(output_layer_down, textDown);
+  
+  
+  
+  //strcpy(textLayerTop, text);
+  //text_layer_set_text(output_layer_up, textLayerTop);
 }
 
 void click_config_provider(void *context) {
@@ -268,30 +325,26 @@ void click_config_provider(void *context) {
 static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
-
-  //creation du layer text
-  /*output_layer = text_layer_create(GRect(0, 0, bounds.size.w, bounds.size.h)); // Change if you use PEBBLE_SDK 3
-  text_layer_set_text(output_layer, "Welcome Pebble 2 :-)\nPlease UP click !");
-  text_layer_set_text_alignment(output_layer, GTextAlignmentCenter);*/
   
   int halfHeight = 76;
-  APP_LOG(APP_LOG_LEVEL_INFO, "screenHeight : %d", bounds.size.h);
-  //APP_LOG(APP_LOG_LEVEL_INFO, "halfHeight : %f", halfHeight);
+  //APP_LOG(APP_LOG_LEVEL_INFO, "screenHeight : %d", bounds.size.h);
   
   //layer du haut
   output_layer_up = text_layer_create(GRect(0, 0, bounds.size.w, halfHeight));
-  send(1, "");
-  text_layer_set_text(output_layer_up, textLayer);
+  idTop = persist_read_int(SLOT1);
+  send(idTop, "");
+  text_layer_set_text(output_layer_up, "waiting");
   text_layer_set_text_alignment(output_layer_up, GTextAlignmentCenter);
        
   //layer du bas
   output_layer_down = text_layer_create(GRect(0, halfHeight, bounds.size.w, halfHeight));
-  text_layer_set_text(output_layer_down, "Down layer");
+  idBot = persist_read_int(SLOT2);
+  send(idBot, "");
+  text_layer_set_text(output_layer_down, "waiting");
   text_layer_set_text_alignment(output_layer_down, GTextAlignmentCenter);
   
   
   //on link au root
-  //layer_add_child(window_layer, text_layer_get_layer(output_layer));
   layer_add_child(window_layer, text_layer_get_layer(output_layer_up));
   layer_add_child(window_layer, text_layer_get_layer(output_layer_down));
 }
@@ -304,14 +357,9 @@ static void main_window_unload(Window *window) {
  * Initializes
  */
 static void init(void) {
-  main_window = window_create();
-  window_set_click_config_provider(main_window, click_config_provider);
-  window_set_window_handlers(main_window, (WindowHandlers) {
-    .load = main_window_load,
-    .unload = main_window_unload,
-  });
-  window_stack_push(main_window, true);
-
+  //load sample
+  loadSampleData();
+  
   // Subscribe to TickTimerService
   tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
   
@@ -322,6 +370,15 @@ static void init(void) {
 
   app_message_register_inbox_received(received_handler);
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  
+  //window
+  main_window = window_create();
+  window_set_click_config_provider(main_window, click_config_provider);
+  window_set_window_handlers(main_window, (WindowHandlers) {
+    .load = main_window_load,
+    .unload = main_window_unload,
+  });
+  window_stack_push(main_window, true);
 }
   
 static void deinit(void) {
