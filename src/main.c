@@ -67,7 +67,18 @@ TextLayer *output_layer;
 
 #define NUMBER_OF_PAGE 4
 
+//MENU 
+#define NUM_MENU_SECTIONS 2
+#define NUM_FIRST_MENU_ITEMS 2
+#define NUM_SECOND_MENU_ITEMS 2
 
+static SimpleMenuLayer *s_simple_menu_layer;
+static SimpleMenuSection s_menu_sections[NUM_MENU_SECTIONS];
+static SimpleMenuItem s_first_menu_items[NUM_FIRST_MENU_ITEMS];
+static SimpleMenuItem s_second_menu_items[NUM_SECOND_MENU_ITEMS];
+
+
+//Other
 int counter = -1;
 char text[MAX_TEXT_SIZE];
 unsigned long int up_time = 0;      //in seconds
@@ -143,6 +154,12 @@ void getWaiting(int id){
       strcpy(text, "Mode:\nSHOW_BATTERY_STATE\nset");
       break;
   }
+}
+
+//menu callback
+static void menu_select_callback(int index, void *ctx) {
+  s_first_menu_items[index].subtitle = "You've hit select here!";
+  layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
 }
 
 void send(int key, char *value) {
@@ -391,8 +408,41 @@ void click_config_provider(void *context) {
 static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
-  
   int halfHeight = 76;
+  
+  //Menu part
+  s_first_menu_items[0] = (SimpleMenuItem) {
+    .title = "Slot 1",
+    .callback = menu_select_callback,
+  };
+  s_first_menu_items[1] = (SimpleMenuItem) {
+    .title = "Slot 2",
+    .subtitle = "Here's a subtitle",
+    .callback = menu_select_callback,
+  };
+  
+  s_second_menu_items[0] = (SimpleMenuItem) {
+    .title = "Slot 3",
+    .callback = menu_select_callback,
+  };
+  s_second_menu_items[1] = (SimpleMenuItem) {
+    .title = "Slot 4",
+    .callback = menu_select_callback,
+  };
+  
+  s_menu_sections[0] = (SimpleMenuSection) {
+    .title = "Page 1",
+    .num_items = NUM_FIRST_MENU_ITEMS,
+    .items = s_first_menu_items,
+  };
+  s_menu_sections[1] = (SimpleMenuSection) {
+    .title = "Page 2",
+    .num_items = NUM_SECOND_MENU_ITEMS,
+    .items = s_second_menu_items,
+  };
+  
+  s_simple_menu_layer = simple_menu_layer_create(bounds, window, s_menu_sections, NUM_MENU_SECTIONS, NULL);
+  layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
   
   //layer du haut
   output_layer_up = text_layer_create(GRect(0, 0, bounds.size.w, halfHeight));
@@ -410,12 +460,14 @@ static void main_window_load(Window *window) {
   send(idTop, "");
   
   //on link au root
-  layer_add_child(window_layer, text_layer_get_layer(output_layer_up));
-  layer_add_child(window_layer, text_layer_get_layer(output_layer_down));
+  //layer_add_child(window_layer, text_layer_get_layer(output_layer_up));
+  //layer_add_child(window_layer, text_layer_get_layer(output_layer_down));
 }
 
 static void main_window_unload(Window *window) {
-  text_layer_destroy(output_layer);
+  text_layer_destroy(output_layer_up);
+  text_layer_destroy(output_layer_down);
+  simple_menu_layer_destroy(s_simple_menu_layer);
 }
 
 /**
