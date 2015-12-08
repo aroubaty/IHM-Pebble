@@ -146,10 +146,59 @@ void getWaiting(int id){
 }
 
 void send(int key, char *value) {
+  int s1, m1, h1;
+  BatteryChargeState charge_state;
   DictionaryIterator *iter;
-  app_message_outbox_begin(&iter);
-  dict_write_cstring(iter, key, value);
-  app_message_outbox_send();
+  int boolUpdate = 0;
+  
+  switch(key){
+    case SHOW_UP_TIME:
+      s1 = up_time % 60;
+      m1 = (up_time % 3600) / 60;
+      h1 = up_time / 3600;
+      snprintf(text, MAX_TEXT_SIZE, "Uptime:\n%dh %dm %ds", h1, m1, s1);
+      
+      boolUpdate = 1;
+      break;
+    
+    case SHOW_ACTIVE_TIME:
+      break;
+    case SHOW_BATTERY_STATE:
+      charge_state = battery_state_service_peek();
+      if (charge_state.is_charging) {
+        snprintf(text, MAX_TEXT_SIZE, "Battery is charging");
+      }
+      else {
+        snprintf(text, MAX_TEXT_SIZE, "Battery is\n%d%% charged", charge_state.charge_percent);
+      }
+      boolUpdate = 1;
+      break;
+    default:
+      app_message_outbox_begin(&iter);
+      dict_write_cstring(iter, key, value);
+      app_message_outbox_send();
+      break;
+  }
+  
+  if(boolUpdate == 1){
+    //update top
+    if(key == idTop){
+      strcpy(textLayerTop, text);
+      text_layer_set_text(output_layer_up, textLayerTop);
+      
+      //start next
+      APP_LOG(APP_LOG_LEVEL_INFO, "send id : %d", idBot);
+      send(idBot, "");
+    }
+    
+    //update bot
+    if(key == idBot){
+      strcpy(textLayerDown, text);
+      text_layer_set_text(output_layer_down, textLayerDown);
+    }
+  }
+  
+  
 }
 
 void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -179,7 +228,7 @@ void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 static void data_handler(AccelData *data, uint32_t num_samples) {  // accel from -4000 to 4000, 1g = 1000 cm/s²
-  if (counter == SHOW_ACTIVE_TIME) {
+  if (idTop == SHOW_ACTIVE_TIME) {
     int i, x, y, z, acc_norm_2;
     for (i = 0; i < NUM_ACCEL_SAMPLES; i++) {
                                              // Divide by 10 to avoid too high values. Now from -400 to 400
@@ -200,7 +249,36 @@ static void data_handler(AccelData *data, uint32_t num_samples) {  // accel from
     int hours = active_time_s / 3600;
 
     snprintf(text, MAX_TEXT_SIZE, "Active time:\n%dh %dm %ds", hours, minutes, seconds);
-    text_layer_set_text(output_layer, text);
+    strcpy(textLayerTop, text);
+    text_layer_set_text(output_layer_up, textLayerTop);
+    
+    //start next
+    //APP_LOG(APP_LOG_LEVEL_INFO, "send id : %d", idBot);
+    send(idBot, "");
+    
+  }else if (idBot == SHOW_ACTIVE_TIME) {
+    int i, x, y, z, acc_norm_2;
+    for (i = 0; i < NUM_ACCEL_SAMPLES; i++) {
+                                             // Divide by 10 to avoid too high values. Now from -400 to 400
+      x = data[i].x / 10;                    // accel in dm/s²
+      y = data[i].y / 10;                    // accel in dm/s²
+      z = data[i].z / 10;                    // accel in dm/s²
+                                             // 1g = 100 dm/s²  
+      acc_norm_2 = (x*x) + (y*y) + (z*z);    // (1g)² = 10000
+      //APP_LOG(APP_LOG_LEVEL_INFO, "%d %d %d %d", x, y, z, acc_norm_2);
+      if ( ((acc_norm_2 - GRAVITY) > ACCEL_THRESHOLD) || ((GRAVITY - acc_norm_2) > ACCEL_THRESHOLD) ) {
+        active_time++;
+      }
+    }
+    
+    int active_time_s = active_time / 10;
+    int seconds = active_time_s % 60;
+    int minutes = (active_time_s % 3600) / 60;
+    int hours = active_time_s / 3600;
+
+    snprintf(text, MAX_TEXT_SIZE, "Active time:\n%dh %dm %ds", hours, minutes, seconds);
+    strcpy(textLayerDown, text);
+    text_layer_set_text(output_layer_down, textLayerTop);
   }
 }
 
@@ -269,45 +347,6 @@ void received_handler(DictionaryIterator *iter, void *context) {
       strcat(text, " : ");
       strcat(text, dict_find(iter, KEY_ARRIVAL_TIME)->value->cstring);
       break;
-    //new truc
-    case SHOW_UP_TIME:
-      int s1 = up_time % 60;
-      int m1 = (up_time % 3600) / 60;
-      int h1 = up_time / 3600;
-      snprintf(text, MAX_TEXT_SIZE, "Uptime:\n%dh %dm %ds", h1, m1, s1);
-      break;
-    
-    case SHOW_ACTIVE_TIME:
-      int i, x, y, z, acc_norm_2;
-      for (i = 0; i < NUM_ACCEL_SAMPLES; i++) {
-                                               // Divide by 10 to avoid too high values. Now from -400 to 400
-        x = data[i].x / 10;                    // accel in dm/s²
-        y = data[i].y / 10;                    // accel in dm/s²
-        z = data[i].z / 10;                    // accel in dm/s²
-                                               // 1g = 100 dm/s²  
-        acc_norm_2 = (x*x) + (y*y) + (z*z);    // (1g)² = 10000
-        //APP_LOG(APP_LOG_LEVEL_INFO, "%d %d %d %d", x, y, z, acc_norm_2);
-        if ( ((acc_norm_2 - GRAVITY) > ACCEL_THRESHOLD) || ((GRAVITY - acc_norm_2) > ACCEL_THRESHOLD) ) {
-          active_time++;
-        }
-      }
-      
-      int active_time_s = active_time / 10;
-      int s2 = active_time_s % 60;
-      int m2 = (active_time_s % 3600) / 60;
-      int h2 = active_time_s / 3600;
-  
-      snprintf(text, MAX_TEXT_SIZE, "Active time:\n%dh %dm %ds", h2, m2, s2);
-      break;
-    case SHOW_BATTERY_STATE:
-      BatteryChargeState charge_state = battery_state_service_peek();
-      if (charge_state.is_charging) {
-        snprintf(text, MAX_TEXT_SIZE, "Battery is charging");
-      }
-      else {
-        snprintf(text, MAX_TEXT_SIZE, "Battery is\n%d%% charged", charge_state.charge_percent);
-      }
-      break;
     default:
       strcpy(text, "Error.\nPlease check your dictionary KEYS");
       break;
@@ -330,9 +369,6 @@ void received_handler(DictionaryIterator *iter, void *context) {
     strcpy(textLayerDown, text);
     text_layer_set_text(output_layer_down, textLayerDown);
   }
-  
-  //strcpy(textLayerDown, text);
-  //text_layer_set_text(output_layer_down, textLayerDown);
 }
 
 void up_click_handler(ClickRecognizerRef recognizer, void *context) {
@@ -341,22 +377,11 @@ void up_click_handler(ClickRecognizerRef recognizer, void *context) {
   
   idTop = persist_read_int(SLOT1 + (currentPage * 2));
   APP_LOG(APP_LOG_LEVEL_INFO, "send id : %d", idTop);
-  //char textUp[MAX_TEXT_SIZE];
-  //getWaiting(idTop);
-  //strcpy(textUp, text);
   send(idTop, "");
   text_layer_set_text(output_layer_up, "waiting..");
   
   idBot = persist_read_int(SLOT2 + (currentPage * 2));
-  //char textDown[MAX_TEXT_SIZE];
-  //getWaiting(idBot);
-  //strcpy(textDown, text);
   text_layer_set_text(output_layer_down, "waiting..");
-  
-  
-  
-  //strcpy(textLayerTop, text);
-  //text_layer_set_text(output_layer_up, textLayerTop);
 }
 
 void click_config_provider(void *context) {
@@ -368,22 +393,21 @@ static void main_window_load(Window *window) {
   GRect bounds = layer_get_bounds(window_layer);
   
   int halfHeight = 76;
-  //APP_LOG(APP_LOG_LEVEL_INFO, "screenHeight : %d", bounds.size.h);
   
   //layer du haut
   output_layer_up = text_layer_create(GRect(0, 0, bounds.size.w, halfHeight));
   idTop = persist_read_int(SLOT1);
-  //send(idTop, "");
   text_layer_set_text(output_layer_up, "waiting");
   text_layer_set_text_alignment(output_layer_up, GTextAlignmentCenter);
        
   //layer du bas
   output_layer_down = text_layer_create(GRect(0, halfHeight, bounds.size.w, halfHeight));
   idBot = persist_read_int(SLOT2);
-  //send(idBot, "");
   text_layer_set_text(output_layer_down, "waiting");
   text_layer_set_text_alignment(output_layer_down, GTextAlignmentCenter);
   
+  //send 
+  send(idTop, "");
   
   //on link au root
   layer_add_child(window_layer, text_layer_get_layer(output_layer_up));
