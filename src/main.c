@@ -84,10 +84,10 @@ TextLayer *output_layer_down;
 void loadSampleData(){
   persist_write_int(SLOT1, 4);
   persist_write_int(SLOT2, 5);
-  persist_write_int(SLOT3, 6);
-  persist_write_int(SLOT4, 7);
-  persist_write_int(SLOT5, 8);
-  persist_write_int(SLOT6, 9);
+  persist_write_int(SLOT3, 0);
+  persist_write_int(SLOT4, 13);
+  persist_write_int(SLOT5, 14);
+  persist_write_int(SLOT6, 15);
   persist_write_int(SLOT7, 10);
   persist_write_int(SLOT8, 11);
 }
@@ -141,9 +141,6 @@ void getWaiting(int id){
       break;
     case SHOW_BATTERY_STATE:
       strcpy(text, "Mode:\nSHOW_BATTERY_STATE\nset");
-      break;
-    default:
-      strcpy(text, "Error.\nPlease check if NUMBER_OF_ITEMS is OK");
       break;
   }
 }
@@ -209,6 +206,7 @@ static void data_handler(AccelData *data, uint32_t num_samples) {  // accel from
 
 void received_handler(DictionaryIterator *iter, void *context) {
   Tuple *result_tuple = dict_find(iter, PEBBLE_KEY_VALUE);
+  
   switch(result_tuple->value->int32) {
     // Location API
     case REQUEST_LOCATION:
@@ -271,15 +269,60 @@ void received_handler(DictionaryIterator *iter, void *context) {
       strcat(text, " : ");
       strcat(text, dict_find(iter, KEY_ARRIVAL_TIME)->value->cstring);
       break;
+    //new truc
+    case SHOW_UP_TIME:
+      int s1 = up_time % 60;
+      int m1 = (up_time % 3600) / 60;
+      int h1 = up_time / 3600;
+      snprintf(text, MAX_TEXT_SIZE, "Uptime:\n%dh %dm %ds", h1, m1, s1);
+      break;
+    
+    case SHOW_ACTIVE_TIME:
+      int i, x, y, z, acc_norm_2;
+      for (i = 0; i < NUM_ACCEL_SAMPLES; i++) {
+                                               // Divide by 10 to avoid too high values. Now from -400 to 400
+        x = data[i].x / 10;                    // accel in dm/s²
+        y = data[i].y / 10;                    // accel in dm/s²
+        z = data[i].z / 10;                    // accel in dm/s²
+                                               // 1g = 100 dm/s²  
+        acc_norm_2 = (x*x) + (y*y) + (z*z);    // (1g)² = 10000
+        //APP_LOG(APP_LOG_LEVEL_INFO, "%d %d %d %d", x, y, z, acc_norm_2);
+        if ( ((acc_norm_2 - GRAVITY) > ACCEL_THRESHOLD) || ((GRAVITY - acc_norm_2) > ACCEL_THRESHOLD) ) {
+          active_time++;
+        }
+      }
+      
+      int active_time_s = active_time / 10;
+      int s2 = active_time_s % 60;
+      int m2 = (active_time_s % 3600) / 60;
+      int h2 = active_time_s / 3600;
+  
+      snprintf(text, MAX_TEXT_SIZE, "Active time:\n%dh %dm %ds", h2, m2, s2);
+      break;
+    case SHOW_BATTERY_STATE:
+      BatteryChargeState charge_state = battery_state_service_peek();
+      if (charge_state.is_charging) {
+        snprintf(text, MAX_TEXT_SIZE, "Battery is charging");
+      }
+      else {
+        snprintf(text, MAX_TEXT_SIZE, "Battery is\n%d%% charged", charge_state.charge_percent);
+      }
+      break;
     default:
       strcpy(text, "Error.\nPlease check your dictionary KEYS");
       break;
   }
   
+  APP_LOG(APP_LOG_LEVEL_INFO, "receive: %s", text);
+  
   //update top
   if(result_tuple->value->int32 == idTop){
     strcpy(textLayerTop, text);
     text_layer_set_text(output_layer_up, textLayerTop);
+    
+    //start next
+    APP_LOG(APP_LOG_LEVEL_INFO, "send id : %d", idBot);
+    send(idBot, "");
   }
   
   //update bot
@@ -298,19 +341,17 @@ void up_click_handler(ClickRecognizerRef recognizer, void *context) {
   
   idTop = persist_read_int(SLOT1 + (currentPage * 2));
   APP_LOG(APP_LOG_LEVEL_INFO, "send id : %d", idTop);
-  char textUp[MAX_TEXT_SIZE];
-  getWaiting(idTop);
-  strcpy(textUp, text);
+  //char textUp[MAX_TEXT_SIZE];
+  //getWaiting(idTop);
+  //strcpy(textUp, text);
   send(idTop, "");
-  text_layer_set_text(output_layer_up, textUp);
+  text_layer_set_text(output_layer_up, "waiting..");
   
   idBot = persist_read_int(SLOT2 + (currentPage * 2));
-  APP_LOG(APP_LOG_LEVEL_INFO, "send id : %d", idBot);
-  char textDown[MAX_TEXT_SIZE];
-  getWaiting(idBot);
-  strcpy(textDown, text);
-  send(idBot, "");
-  text_layer_set_text(output_layer_down, textDown);
+  //char textDown[MAX_TEXT_SIZE];
+  //getWaiting(idBot);
+  //strcpy(textDown, text);
+  text_layer_set_text(output_layer_down, "waiting..");
   
   
   
@@ -332,14 +373,14 @@ static void main_window_load(Window *window) {
   //layer du haut
   output_layer_up = text_layer_create(GRect(0, 0, bounds.size.w, halfHeight));
   idTop = persist_read_int(SLOT1);
-  send(idTop, "");
+  //send(idTop, "");
   text_layer_set_text(output_layer_up, "waiting");
   text_layer_set_text_alignment(output_layer_up, GTextAlignmentCenter);
        
   //layer du bas
   output_layer_down = text_layer_create(GRect(0, halfHeight, bounds.size.w, halfHeight));
   idBot = persist_read_int(SLOT2);
-  send(idBot, "");
+  //send(idBot, "");
   text_layer_set_text(output_layer_down, "waiting");
   text_layer_set_text_alignment(output_layer_down, GTextAlignmentCenter);
   
