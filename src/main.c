@@ -1,6 +1,8 @@
 #include <pebble.h>
 
 static Window *main_window;
+static Window *menu_window;
+static Window *select_window;
 TextLayer *output_layer;
 
 // Android Communication
@@ -66,16 +68,23 @@ TextLayer *output_layer;
 #define SLOT8 57
 
 #define NUMBER_OF_PAGE 4
+#define NUMBER_OF_SLOT 8
 
 //MENU 
-#define NUM_MENU_SECTIONS 2
+#define NUM_MENU_SECTIONS 4
 #define NUM_FIRST_MENU_ITEMS 2
 #define NUM_SECOND_MENU_ITEMS 2
+#define NUM_THIRD_MENU_ITEMS 2
+#define NUM_FOURTH_MENU_ITEMS 2
 
 static SimpleMenuLayer *s_simple_menu_layer;
 static SimpleMenuSection s_menu_sections[NUM_MENU_SECTIONS];
 static SimpleMenuItem s_first_menu_items[NUM_FIRST_MENU_ITEMS];
 static SimpleMenuItem s_second_menu_items[NUM_SECOND_MENU_ITEMS];
+static SimpleMenuItem s_third_menu_items[NUM_THIRD_MENU_ITEMS];
+static SimpleMenuItem s_fourth_menu_items[NUM_FOURTH_MENU_ITEMS];
+
+//MENU SELECT
 
 
 //Other
@@ -91,6 +100,7 @@ int idBot = -1;
 int currentPage = 0;
 TextLayer *output_layer_up;
 TextLayer *output_layer_down;
+char subMenu[NUMBER_OF_SLOT][MAX_TEXT_SIZE];
 
 void loadSampleData(){
   persist_write_int(SLOT1, 4);
@@ -152,6 +162,59 @@ void getWaiting(int id){
       break;
     case SHOW_BATTERY_STATE:
       strcpy(text, "Mode:\nSHOW_BATTERY_STATE\nset");
+      break;
+  }
+}
+
+void getIdName(int id, int idSlot){
+  switch(id){
+    case REQUEST_LOCATION:
+      strcpy(subMenu[idSlot], "Location");
+      break;
+    case REQUEST_FIX_LOCATION:
+      strcpy(subMenu[idSlot], "Fix location");
+      break;
+    case REQUEST_START_THREADED_LOCATION:
+      strcpy(subMenu[idSlot], "Start location thread");
+      break;
+    case REQUEST_STOP_THREADED_LOCATION:
+      strcpy(subMenu[idSlot], "Stop locaiton thread");
+      break;
+    case REQUEST_ELEVATION:
+      strcpy(subMenu[idSlot], "Elevation");
+      break;
+    case REQUEST_WEATHER_STATUS:
+      strcpy(subMenu[idSlot], "Weather status");
+      break;
+    case REQUEST_WEATHER_TEMPERATURE:
+      strcpy(subMenu[idSlot], "Weather temperature");
+      break;
+    case REQUEST_WEATHER_PRESSURE:
+      strcpy(subMenu[idSlot], "Weather pressure");
+      break;
+    case REQUEST_WEATHER_HUMIDITY:
+      strcpy(subMenu[idSlot], "Weather humidity");
+      break;
+    case REQUEST_WEATHER_WIND:
+      strcpy(subMenu[idSlot], "Weather wind");
+      break;
+    case REQUEST_WEATHER_SUNRISE:
+      strcpy(subMenu[idSlot], "Weather sunrise");
+      break;
+    case REQUEST_WEATHER_SUNSET:
+      strcpy(subMenu[idSlot], "Weather sunset");
+      break;
+    case REQUEST_TRANSPORT:
+      strcpy(subMenu[idSlot], "Transport");
+      break;
+    case SHOW_UP_TIME:
+      strcpy(subMenu[idSlot], "Up time");
+      break;
+    case SHOW_ACTIVE_TIME:
+      strcpy(subMenu[idSlot], "Active time");
+      break;
+    case SHOW_BATTERY_STATE:
+      strcpy(subMenu[idSlot], "Battery state");
       break;
   }
 }
@@ -401,48 +464,19 @@ void up_click_handler(ClickRecognizerRef recognizer, void *context) {
   text_layer_set_text(output_layer_down, "waiting..");
 }
 
+void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+  window_stack_push(menu_window, true);
+}
+
 void click_config_provider(void *context) {
 	window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
 }
 
 static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
   int halfHeight = 76;
-  
-  //Menu part
-  s_first_menu_items[0] = (SimpleMenuItem) {
-    .title = "Slot 1",
-    .callback = menu_select_callback,
-  };
-  s_first_menu_items[1] = (SimpleMenuItem) {
-    .title = "Slot 2",
-    .subtitle = "Here's a subtitle",
-    .callback = menu_select_callback,
-  };
-  
-  s_second_menu_items[0] = (SimpleMenuItem) {
-    .title = "Slot 3",
-    .callback = menu_select_callback,
-  };
-  s_second_menu_items[1] = (SimpleMenuItem) {
-    .title = "Slot 4",
-    .callback = menu_select_callback,
-  };
-  
-  s_menu_sections[0] = (SimpleMenuSection) {
-    .title = "Page 1",
-    .num_items = NUM_FIRST_MENU_ITEMS,
-    .items = s_first_menu_items,
-  };
-  s_menu_sections[1] = (SimpleMenuSection) {
-    .title = "Page 2",
-    .num_items = NUM_SECOND_MENU_ITEMS,
-    .items = s_second_menu_items,
-  };
-  
-  s_simple_menu_layer = simple_menu_layer_create(bounds, window, s_menu_sections, NUM_MENU_SECTIONS, NULL);
-  layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
   
   //layer du haut
   output_layer_up = text_layer_create(GRect(0, 0, bounds.size.w, halfHeight));
@@ -460,14 +494,119 @@ static void main_window_load(Window *window) {
   send(idTop, "");
   
   //on link au root
-  //layer_add_child(window_layer, text_layer_get_layer(output_layer_up));
-  //layer_add_child(window_layer, text_layer_get_layer(output_layer_down));
+  layer_add_child(window_layer, text_layer_get_layer(output_layer_up));
+  layer_add_child(window_layer, text_layer_get_layer(output_layer_down));
 }
 
 static void main_window_unload(Window *window) {
   text_layer_destroy(output_layer_up);
   text_layer_destroy(output_layer_down);
+}
+
+static void menu_window_load(Window *window) {
+  Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(window_layer);
+  int id = -1;
+  
+  //Menu part
+  //page 1
+  id = persist_read_int(SLOT1);
+  getIdName(id, SLOT1);
+  s_first_menu_items[0] = (SimpleMenuItem) {
+    .title = "Partie haut",
+    .subtitle = subMenu[SLOT1],
+    .callback = menu_select_callback,
+  };
+  id = persist_read_int(SLOT2);
+  getIdName(id, SLOT2);
+  s_first_menu_items[1] = (SimpleMenuItem) {
+    .title = "Partie bas",
+    .subtitle = subMenu[SLOT2],
+    .callback = menu_select_callback,
+  };
+  
+  //page 2
+  id = persist_read_int(SLOT3);
+  getIdName(id, SLOT3);
+  s_second_menu_items[0] = (SimpleMenuItem) {
+    .title = "Slot 3",
+    .subtitle = subMenu[SLOT3],
+    .callback = menu_select_callback,
+  };
+  id = persist_read_int(SLOT4);
+  getIdName(id, SLOT4);
+  s_second_menu_items[1] = (SimpleMenuItem) {
+    .title = "Slot 4",
+    .subtitle = subMenu[SLOT4],
+    .callback = menu_select_callback,
+  };
+  
+  //page 3
+  id = persist_read_int(SLOT5);
+  getIdName(id, SLOT5);
+  s_third_menu_items[0] = (SimpleMenuItem) {
+    .title = "Slot 5",
+    .subtitle = subMenu[SLOT5],
+    .callback = menu_select_callback,
+  };
+  id = persist_read_int(SLOT6);
+  getIdName(id, SLOT6);
+  s_third_menu_items[1] = (SimpleMenuItem) {
+    .title = "Slot 6",
+    .subtitle = subMenu[SLOT6],
+    .callback = menu_select_callback,
+  };
+  
+  //page 4
+  id = persist_read_int(SLOT7);
+  getIdName(id, SLOT7);
+  s_fourth_menu_items[0] = (SimpleMenuItem) {
+    .title = "Slot 7",
+    .subtitle = subMenu[SLOT7],
+    .callback = menu_select_callback,
+  };
+  id = persist_read_int(SLOT8);
+  getIdName(id, SLOT8);
+  s_fourth_menu_items[1] = (SimpleMenuItem) {
+    .title = "Slot 8",
+    .subtitle = subMenu[SLOT8],
+    .callback = menu_select_callback,
+  };
+  
+  s_menu_sections[0] = (SimpleMenuSection) {
+    .title = "Page 1",
+    .num_items = NUM_FIRST_MENU_ITEMS,
+    .items = s_first_menu_items,
+  };
+  s_menu_sections[1] = (SimpleMenuSection) {
+    .title = "Page 2",
+    .num_items = NUM_SECOND_MENU_ITEMS,
+    .items = s_second_menu_items,
+  };
+  s_menu_sections[2] = (SimpleMenuSection) {
+    .title = "Page 3",
+    .num_items = NUM_THIRD_MENU_ITEMS,
+    .items = s_third_menu_items,
+  };
+  s_menu_sections[3] = (SimpleMenuSection) {
+    .title = "Page 4",
+    .num_items = NUM_FOURTH_MENU_ITEMS,
+    .items = s_fourth_menu_items,
+  };
+  
+  s_simple_menu_layer = simple_menu_layer_create(bounds, window, s_menu_sections, NUM_MENU_SECTIONS, NULL);
+  layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_menu_layer));
+}
+
+static void menu_window_unload(Window *window) {
   simple_menu_layer_destroy(s_simple_menu_layer);
+}
+
+static void select_window_load(Window *window) {
+ 
+}
+
+static void select_window_unload(Window *window) {
 }
 
 /**
@@ -488,13 +627,28 @@ static void init(void) {
   app_message_register_inbox_received(received_handler);
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
   
-  //window
+  //main window
   main_window = window_create();
   window_set_click_config_provider(main_window, click_config_provider);
   window_set_window_handlers(main_window, (WindowHandlers) {
     .load = main_window_load,
     .unload = main_window_unload,
   });
+  
+  //menu window
+  menu_window = window_create();
+  window_set_window_handlers(menu_window, (WindowHandlers) {
+    .load = menu_window_load,
+    .unload = menu_window_unload,
+  });
+  
+  //select window
+  select_window = window_create();
+  window_set_window_handlers(select_window, (WindowHandlers) {
+    .load = select_window_load,
+    .unload = select_window_unload,
+  });
+  
   window_stack_push(main_window, true);
 }
   
