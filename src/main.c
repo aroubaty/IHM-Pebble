@@ -85,7 +85,11 @@ static SimpleMenuItem s_third_menu_items[NUM_THIRD_MENU_ITEMS];
 static SimpleMenuItem s_fourth_menu_items[NUM_FOURTH_MENU_ITEMS];
 
 //MENU SELECT
+#define NUM_SELECT_ITEM 16
 
+static SimpleMenuLayer *s_simple_select_menu_layer;
+static SimpleMenuSection s_select_sections[1];
+static SimpleMenuItem s_select_items[NUM_SELECT_ITEM];
 
 //Other
 int counter = -1;
@@ -101,6 +105,9 @@ int currentPage = 0;
 TextLayer *output_layer_up;
 TextLayer *output_layer_down;
 char subMenu[NUMBER_OF_SLOT][MAX_TEXT_SIZE];
+
+//var select menu
+int slotToEdit = -1;
 
 void loadSampleData(){
   persist_write_int(SLOT1, 4);
@@ -220,9 +227,30 @@ void getIdName(int id, int idSlot){
 }
 
 //menu callback
-static void menu_select_callback(int index, void *ctx) {
-  s_first_menu_items[index].subtitle = "You've hit select here!";
-  layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
+static void menu_select_callback_p1(int index, void *ctx) {
+  slotToEdit = index;
+  window_stack_push(select_window, true);
+}
+static void menu_select_callback_p2(int index, void *ctx) {
+  slotToEdit = 2+index;
+  window_stack_push(select_window, true);
+}
+static void menu_select_callback_p3(int index, void *ctx) {
+  slotToEdit = 4+index;
+  window_stack_push(select_window, true);
+}
+static void menu_select_callback_p4(int index, void *ctx) {
+  slotToEdit = 6+index;
+  window_stack_push(select_window, true);
+}
+
+static void select_menu_select_callback(int index, void *ctx) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "set new slot %d with id %d", SLOT1 + slotToEdit, index);
+  persist_write_int(SLOT1 + slotToEdit, index);
+  
+  window_stack_remove(menu_window, false);
+  window_stack_pop(true);
+  window_stack_push(menu_window, false);
 }
 
 void send(int key, char *value) {
@@ -515,14 +543,14 @@ static void menu_window_load(Window *window) {
   s_first_menu_items[0] = (SimpleMenuItem) {
     .title = "Partie haut",
     .subtitle = subMenu[SLOT1],
-    .callback = menu_select_callback,
+    .callback = menu_select_callback_p1,
   };
   id = persist_read_int(SLOT2);
   getIdName(id, SLOT2);
   s_first_menu_items[1] = (SimpleMenuItem) {
     .title = "Partie bas",
     .subtitle = subMenu[SLOT2],
-    .callback = menu_select_callback,
+    .callback = menu_select_callback_p1,
   };
   
   //page 2
@@ -531,14 +559,14 @@ static void menu_window_load(Window *window) {
   s_second_menu_items[0] = (SimpleMenuItem) {
     .title = "Slot 3",
     .subtitle = subMenu[SLOT3],
-    .callback = menu_select_callback,
+    .callback = menu_select_callback_p2,
   };
   id = persist_read_int(SLOT4);
   getIdName(id, SLOT4);
   s_second_menu_items[1] = (SimpleMenuItem) {
     .title = "Slot 4",
     .subtitle = subMenu[SLOT4],
-    .callback = menu_select_callback,
+    .callback = menu_select_callback_p2,
   };
   
   //page 3
@@ -547,14 +575,14 @@ static void menu_window_load(Window *window) {
   s_third_menu_items[0] = (SimpleMenuItem) {
     .title = "Slot 5",
     .subtitle = subMenu[SLOT5],
-    .callback = menu_select_callback,
+    .callback = menu_select_callback_p3,
   };
   id = persist_read_int(SLOT6);
   getIdName(id, SLOT6);
   s_third_menu_items[1] = (SimpleMenuItem) {
     .title = "Slot 6",
     .subtitle = subMenu[SLOT6],
-    .callback = menu_select_callback,
+    .callback = menu_select_callback_p3,
   };
   
   //page 4
@@ -563,14 +591,14 @@ static void menu_window_load(Window *window) {
   s_fourth_menu_items[0] = (SimpleMenuItem) {
     .title = "Slot 7",
     .subtitle = subMenu[SLOT7],
-    .callback = menu_select_callback,
+    .callback = menu_select_callback_p4,
   };
   id = persist_read_int(SLOT8);
   getIdName(id, SLOT8);
   s_fourth_menu_items[1] = (SimpleMenuItem) {
     .title = "Slot 8",
     .subtitle = subMenu[SLOT8],
-    .callback = menu_select_callback,
+    .callback = menu_select_callback_p4,
   };
   
   s_menu_sections[0] = (SimpleMenuSection) {
@@ -603,10 +631,86 @@ static void menu_window_unload(Window *window) {
 }
 
 static void select_window_load(Window *window) {
- 
+  Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_bounds(window_layer);
+  
+  s_select_items[0] = (SimpleMenuItem) {
+    .title = "Location",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[1] = (SimpleMenuItem) {
+    .title = "Fix location",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[2] = (SimpleMenuItem) {
+     .title = "Start location thread",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[3] = (SimpleMenuItem) {
+    .title = "Stop locaiton thread",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[4] = (SimpleMenuItem) {
+     .title = "Elevation",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[5] = (SimpleMenuItem) {
+    .title = "Weather status",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[6] = (SimpleMenuItem) {
+    .title = "Weather temperature",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[7] = (SimpleMenuItem) {
+    .title = "Weather pressure",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[8] = (SimpleMenuItem) {
+    .title = "Weather humidity",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[9] = (SimpleMenuItem) {
+    .title = "Weather wind",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[10] = (SimpleMenuItem) {
+    .title = "Weather sunrise",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[11] = (SimpleMenuItem) {
+    .title = "Weather sunset",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[12] = (SimpleMenuItem) {
+    .title = "Transport",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[13] = (SimpleMenuItem) {
+    .title = "Up time",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[14] = (SimpleMenuItem) {
+    .title = "Active time",
+    .callback = select_menu_select_callback,
+  };
+  s_select_items[15] = (SimpleMenuItem) {
+    .title = "Battery state",
+    .callback = select_menu_select_callback,
+  };
+  
+  s_select_sections[0] = (SimpleMenuSection) {
+    .title = "Select new item",
+    .num_items = NUM_SELECT_ITEM,
+    .items = s_select_items,
+  };
+
+  s_simple_select_menu_layer = simple_menu_layer_create(bounds, window, s_select_sections, 1, NULL);
+  layer_add_child(window_layer, simple_menu_layer_get_layer(s_simple_select_menu_layer));
 }
 
 static void select_window_unload(Window *window) {
+  simple_menu_layer_destroy(s_simple_select_menu_layer);
 }
 
 /**
